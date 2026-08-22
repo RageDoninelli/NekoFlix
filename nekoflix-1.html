@@ -474,9 +474,15 @@ tr:last-child td{ border-bottom:none; }
      - Si alguien inspecciona o modifica este HTML, no puede leer ni
        escribir usuarios sin cumplir las políticas del servidor.
 
+   ✅ FASE 4 — QUÉ ES REAL AHORA:
+     - favorites / watchlist / watch_history / watch_progress viven en
+       Supabase (Postgres), protegidas por RLS: cada quien solo lee y
+       escribe SUS propias filas. Se sincronizan entre cualquier
+       dispositivo donde la persona inicie sesión.
+     - STATE.* actúa como caché en memoria (se llena al iniciar sesión)
+       para que la interfaz siga respondiendo al instante.
+
    ⚠️ TODAVÍA SIMULADO / PENDIENTE (próximas fases):
-     - favorites / watchlist / history / watchProgress siguen en
-       localStorage (se migran en FASE 4 a Supabase, por usuario real).
      - El vídeo sigue siendo un demo genérico (FASE 6).
      - No hay integración con Google Drive todavía (FASE 5).
    ================================================================ */
@@ -531,10 +537,11 @@ const CONTENT = [
 ];
 
 /* ---------------- STATE / PERSISTENCE ----------------
-   `users` ahora vive en Supabase/Postgres (fuente de verdad para autorización).
-   favorites/watchlist/history/watchProgress siguen en localStorage
-   hasta la FASE 4 — se migrarán a Supabase, indexados por el usuario
-   real en vez del id de usuario DEMO. */
+   `users` vive en Supabase (fuente de verdad para autorización).
+   favorites/watchlist/history/watchProgress AHORA TAMBIÉN viven en
+   Supabase (Fase 4) — STATE es solo una caché en memoria/localStorage
+   para que la interfaz no tenga que esperar una consulta en cada
+   render; se llena al iniciar sesión con loadUserData(). */
 const DEFAULT_STATE = { users: [], favorites: {}, watchlist: {}, history: {}, watchProgress: {} };
 function loadState(){
   try{ const raw = localStorage.getItem('nekoflix_local_db'); if(raw) return JSON.parse(raw); }catch(e){}
@@ -566,6 +573,13 @@ let currentSearchTerm = '';
 let currentFilters = { genre:'', year:'', quality:'', watched:'' };
 
 function uidKey(u){ return u.id; }
+/* ---------------- Datos personales (favoritos/lista/historial/progreso) ----------------
+   FASE 4: viven en Supabase (tablas favorites, watchlist, watch_history,
+   watch_progress), protegidas por RLS: cada quien solo lee/escribe SUS
+   propias filas. STATE.* funciona como caché local en memoria: se llena
+   una vez al iniciar sesión (loadUserData) para que las funciones de
+   render sigan siendo síncronas y rápidas; cada escritura actualiza la
+   caché al instante (optimista) y sincroniza con Supabase en paralelo. */
 function favs(){ session.user && (STATE.favorites[session.user.id] ||= []); return STATE.favorites[session.user.id] || []; }
 function list(){ session.user && (STATE.watchlist[session.user.id] ||= []); return STATE.watchlist[session.user.id] || []; }
 function hist(){ session.user && (STATE.history[session.user.id] ||= []); return STATE.history[session.user.id] || []; }
@@ -574,6 +588,27 @@ function getProgress(contentId, episodeId){ return STATE.watchProgress[progKey(c
 function setProgress(contentId, episodeId, position, duration){
   STATE.watchProgress[progKey(contentId, episodeId)] = { position, duration, updatedAt: Date.now() };
   saveState();
+  supabase.from('watch_progress').upsert({
+    email: session.user.id, content_id: contentId, episode_id: episodeId || '',
+    position, duration, updated_at: new Date().toISOString(),
+  }, { onConflict: 'email,content_id,episode_id' }).then(({ error })=>{ if(error) console.error('watch_progress sync:', error); });
+}
+async function loadUserData(){
+  const email = session.user.id;
+  STATE.favorites[email] = []; STATE.watchlist[email] = []; STATE.history[email] = [];
+  const [favRes, listRes, histRes, progRes] = await Promise.all([
+    supabase.from('favorites').select('content_id').eq('email', email),
+    supabase.from('watchlist').select('content_id').eq('email', email),
+    supabase.from('watch_history').select('content_id, episode_id, watched_at').eq('email', email).order('watched_at', { ascending:true }),
+    supabase.from('watch_progress').select('content_id, episode_id, position, duration, updated_at').eq('email', email),
+  ]);
+  if(!favRes.error) STATE.favorites[email] = favRes.data.map(r=>r.content_id);
+  if(!listRes.error) STATE.watchlist[email] = listRes.data.map(r=>r.content_id);
+  if(!histRes.error) STATE.history[email] = histRes.data.map(r=>({ contentId:r.content_id, episodeId:r.episode_id||null, watchedAt: new Date(r.watched_at).getTime() }));
+  if(!progRes.error) progRes.data.forEach(r=>{
+    STATE.watchProgress[progKey(r.content_id, r.episode_id||null)] = { position:r.position, duration:r.duration, updatedAt: new Date(r.updated_at).getTime() };
+  });
+  if(favRes.error||listRes.error||histRes.error||progRes.error) console.error('loadUserData error', favRes.error||listRes.error||histRes.error||progRes.error);
 }
 
 function findContent(id){ return CONTENT.find(c=>c.id===id); }
@@ -620,6 +655,7 @@ async function handleAuthenticatedUser(supabaseUser){
     avatarLetter: (record.name || email)[0].toUpperCase(),
     createdAt: record.createdAt, lastAccess: new Date().toISOString(),
   };
+  await loadUserData(); // FASE 4: trae favoritos/lista/historial/progreso ya sincronizados
   toast(`Bienvenido a NekoFlix, ${session.user.name}.`);
   enterApp();
 }
@@ -981,17 +1017,31 @@ function bindDetailHandlers(c){
   panel.querySelectorAll('[data-playep]').forEach(b=> b.addEventListener('click', ()=> playContent(c.id, b.dataset.playep)));
 }
 
-/* ---------------- FAV / LIST TOGGLES ---------------- */
+/* ---------------- FAV / LIST TOGGLES (FASE 4: sincronizados con Supabase) ---------------- */
 function toggleFav(id){
   const arr = STATE.favorites[session.user.id] ||= [];
   const i = arr.indexOf(id);
-  if(i>-1){ arr.splice(i,1); toast('Eliminado de favoritos'); } else { arr.push(id); toast('❤️ Añadido a favoritos'); }
+  const email = session.user.id;
+  if(i>-1){
+    arr.splice(i,1); toast('Eliminado de favoritos');
+    supabase.from('favorites').delete().eq('email', email).eq('content_id', id).then(({error})=>{ if(error) console.error(error); });
+  } else {
+    arr.push(id); toast('❤️ Añadido a favoritos');
+    supabase.from('favorites').insert({ email, content_id:id }).then(({error})=>{ if(error) console.error(error); });
+  }
   saveState();
 }
 function toggleList(id){
   const arr = STATE.watchlist[session.user.id] ||= [];
   const i = arr.indexOf(id);
-  if(i>-1){ arr.splice(i,1); toast('Eliminado de Mi Lista'); } else { arr.push(id); toast('⭐ Añadido a Mi Lista'); }
+  const email = session.user.id;
+  if(i>-1){
+    arr.splice(i,1); toast('Eliminado de Mi Lista');
+    supabase.from('watchlist').delete().eq('email', email).eq('content_id', id).then(({error})=>{ if(error) console.error(error); });
+  } else {
+    arr.push(id); toast('⭐ Añadido a Mi Lista');
+    supabase.from('watchlist').insert({ email, content_id:id }).then(({error})=>{ if(error) console.error(error); });
+  }
   saveState();
 }
 
@@ -1034,10 +1084,12 @@ function closePlayer(){
 function saveWatch(){
   const { contentId, episodeId } = currentEpisode;
   if(!videoEl.duration) return;
-  setProgress(contentId, episodeId, videoEl.currentTime, videoEl.duration);
+  setProgress(contentId, episodeId, videoEl.currentTime, videoEl.duration); // ya sincroniza watch_progress
   const h = STATE.history[session.user.id] ||= [];
   h.push({ contentId, episodeId, watchedAt: Date.now() });
   saveState();
+  supabase.from('watch_history').insert({ email: session.user.id, content_id: contentId, episode_id: episodeId || null })
+    .then(({error})=>{ if(error) console.error('watch_history sync:', error); });
 }
 videoEl.addEventListener('timeupdate', ()=>{
   const fill = document.getElementById('player-progress-fill');
