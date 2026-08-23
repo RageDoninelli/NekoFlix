@@ -439,10 +439,11 @@ tr:last-child td{ border-bottom:none; }
     </div>
     <button class="player-btn" id="btn-player-close" aria-label="Cerrar reproductor" style="font-size:20px;">✕</button>
   </div>
-  <span class="badge badge-demo player-demo-tag">Reproducción DEMO</span>
+  <span class="badge badge-demo player-demo-tag" id="player-source-tag">Reproducción DEMO</span>
   <button class="player-center-play" id="btn-center-play" aria-label="Play/Pause">▶</button>
   <video class="player-video" id="video-el" playsinline></video>
-  <div class="player-controls">
+  <iframe class="player-video hidden" id="drive-iframe" allow="autoplay" allowfullscreen frameborder="0"></iframe>
+  <div class="player-controls" id="player-controls-native">
     <div class="player-progress" id="player-progress"><i id="player-progress-fill"></i></div>
     <div class="player-row">
       <button class="player-btn" id="btn-prev-ep" aria-label="Episodio anterior">⏮</button>
@@ -453,6 +454,13 @@ tr:last-child td{ border-bottom:none; }
       <button class="player-btn" id="btn-subs" aria-label="Subtítulos" title="Subtítulos (demo)">CC</button>
       <button class="player-btn" id="btn-vol" aria-label="Volumen">🔊</button>
       <button class="player-btn" id="btn-fullscreen" aria-label="Pantalla completa">⛶</button>
+    </div>
+  </div>
+  <div class="player-controls hidden" id="player-controls-drive">
+    <div class="player-row" style="justify-content:space-between;">
+      <button class="player-btn" id="btn-prev-ep-d" aria-label="Episodio anterior" style="width:auto;padding:0 10px;">⏮ Anterior</button>
+      <button class="btn btn-primary btn-sm" id="btn-mark-watched">✓ Marcar como visto</button>
+      <button class="player-btn" id="btn-next-ep-d" aria-label="Siguiente episodio" style="width:auto;padding:0 10px;">Siguiente ⏭</button>
     </div>
   </div>
 </div>
@@ -481,6 +489,20 @@ tr:last-child td{ border-bottom:none; }
        dispositivo donde la persona inicie sesión.
      - STATE.* actúa como caché en memoria (se llena al iniciar sesión)
        para que la interfaz siga respondiendo al instante.
+
+   ✅ FASE 5 — QUÉ ES REAL AHORA (Opción A: enlaces compartidos de Drive):
+     - El administrador vincula cada película/episodio con un archivo real
+       de Google Drive (compartido como "cualquiera con el enlace") desde
+       Control Center → pestaña "Drive". El vínculo vive en Supabase
+       (tabla content_drive_links), visible para cualquier usuario
+       autorizado, editable solo por el Super Admin.
+     - Si hay un vínculo, se reproduce el archivo real (vía el reproductor
+       embebido de Google Drive). Si no, se usa el vídeo DEMO como antes.
+     - Limitación real, no simulada: al ser un iframe de Google Drive
+       (otro dominio), el navegador no permite leer su progreso de
+       reproducción — por diseño de seguridad de todos los navegadores,
+       no una limitación de NekoFlix. Por eso el contenido de Drive usa
+       un botón "Marcar como visto" en vez de progreso automático.
 
    ⚠️ TODAVÍA SIMULADO / PENDIENTE (próximas fases):
      - El vídeo sigue siendo un demo genérico (FASE 6).
@@ -534,6 +556,22 @@ const CONTENT = [
     seasons:[ season(1,[ ep(1,'La bruja del recuerdo','24 min','Frieren emprende un nuevo viaje.'), ep(2,'El país natal de Himmel','24 min','Un reencuentro con el pasado.') ]) ] },
   { id:'a3', type:'anime', title:'Kiki y el Bosque Azul', year:2020, genres:['Aventura','Anime','Familiar'], synopsis:'Una joven bruja aprende a valerse por sí misma en una ciudad junto al mar.', rating:7.9, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2025-05-30',
     seasons:[ season(1,[ ep(1,'La partida','23 min','Kiki deja su hogar para iniciar su entrenamiento.') ]) ] },
+  { id:'a4', type:'anime', title:'Another', year:2012, genres:['Misterio','Terror','Anime'], synopsis:'En una escuela apartada de un pueblo de montaña, un estudiante recién trasladado descubre que un aula guarda un secreto ligado a una alumna fallecida años atrás — y que ignorarlo puede costarle la vida a quien lo descubra.', rating:7.6, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2026-08-22',
+    seasons:[ season(1,[
+      ep(1,'Episodio 1','24 min','El traslado de Kōichi a la clase 3 y su primer encuentro con Mei.'),
+      ep(2,'Episodio 2','24 min','Kōichi nota algo extraño en la actitud de sus compañeros hacia Mei.'),
+      ep(3,'Episodio 3','24 min','Un suceso inesperado sacude a la clase 3.'),
+      ep(4,'Episodio 4','24 min','Kōichi investiga el pasado de la clase.'),
+      ep(5,'Episodio 5','24 min','Salen a la luz más detalles sobre "el fenómeno".'),
+      ep(6,'Episodio 6','24 min','La tensión en el salón de clases aumenta.'),
+      ep(7,'Episodio 7','24 min','Un plan para detener la serie de sucesos comienza a tomar forma.'),
+      ep(8,'Episodio 8','24 min','Nuevas pistas complican lo que creían entender.'),
+      ep(9,'Episodio 9','24 min','La situación se vuelve más peligrosa para todos.'),
+      ep(10,'Episodio 10','24 min','Se acercan al origen de "el fenómeno".'),
+      ep(11,'Episodio 11','24 min','La clase se prepara para un desenlace inevitable.'),
+      ep(12,'Episodio 12','24 min','El cierre de la historia principal.'),
+      ep(13,'Episodio 13 (OVA)','24 min','Un episodio adicional que expande la historia.'),
+    ]) ] },
 ];
 
 /* ---------------- STATE / PERSISTENCE ----------------
@@ -542,7 +580,7 @@ const CONTENT = [
    Supabase (Fase 4) — STATE es solo una caché en memoria/localStorage
    para que la interfaz no tenga que esperar una consulta en cada
    render; se llena al iniciar sesión con loadUserData(). */
-const DEFAULT_STATE = { users: [], favorites: {}, watchlist: {}, history: {}, watchProgress: {} };
+const DEFAULT_STATE = { users: [], favorites: {}, watchlist: {}, history: {}, watchProgress: {}, driveLinks: {} };
 function loadState(){
   try{ const raw = localStorage.getItem('nekoflix_local_db'); if(raw) return JSON.parse(raw); }catch(e){}
   return JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -656,6 +694,7 @@ async function handleAuthenticatedUser(supabaseUser){
     createdAt: record.createdAt, lastAccess: new Date().toISOString(),
   };
   await loadUserData(); // FASE 4: trae favoritos/lista/historial/progreso ya sincronizados
+  await loadDriveLinks(); // FASE 5: trae qué contenido ya está vinculado a Google Drive
   toast(`Bienvenido a NekoFlix, ${session.user.name}.`);
   enterApp();
 }
@@ -1049,6 +1088,18 @@ function toggleList(id){
    PLAYER
    ================================================================ */
 const videoEl = document.getElementById('video-el');
+const driveIframe = document.getElementById('drive-iframe');
+let currentPlaybackMode = 'demo'; // 'demo' | 'drive'
+
+function driveLinkKey(contentId, episodeId){ return contentId + '::' + (episodeId || ''); }
+function getDriveFileId(contentId, episodeId){ return STATE.driveLinks?.[driveLinkKey(contentId, episodeId)] || null; }
+async function loadDriveLinks(){
+  const { data, error } = await supabase.from('content_drive_links').select('content_id, episode_id, drive_file_id');
+  if(error){ console.error('loadDriveLinks:', error); STATE.driveLinks = {}; return; }
+  STATE.driveLinks = {};
+  data.forEach(r=> STATE.driveLinks[driveLinkKey(r.content_id, r.episode_id)] = r.drive_file_id);
+}
+
 function playContent(contentId, episodeId){
   closeDetail();
   const c = findContent(contentId);
@@ -1056,29 +1107,76 @@ function playContent(contentId, episodeId){
   const label = episodeId ? episodeLabelFor(c, episodeId) : null;
   document.getElementById('player-title').textContent = c.title;
   document.getElementById('player-sub').textContent = label ? `${label.code} · ${label.title}` : `${c.year} · ${c.quality}`;
-  videoEl.src = DEMO_VIDEO;
   document.getElementById('player-overlay').classList.add('show');
-  const saved = getProgress(contentId, episodeId);
-  videoEl.onloadedmetadata = ()=>{
-    if(saved && saved.position < videoEl.duration - 3) videoEl.currentTime = saved.position;
-    videoEl.play().catch(()=>{});
-  };
   updateEpNavButtons(c, episodeId);
+
+  const driveId = getDriveFileId(contentId, episodeId);
+  if(driveId){
+    // ---- Modo Drive: contenido real del Google Drive del administrador ----
+    currentPlaybackMode = 'drive';
+    document.getElementById('player-source-tag').textContent = '🎬 Google Drive';
+    document.getElementById('player-source-tag').classList.remove('badge-demo');
+    document.getElementById('btn-center-play').style.display = 'none';
+    videoEl.classList.add('hidden'); videoEl.pause(); videoEl.removeAttribute('src');
+    document.getElementById('player-controls-native').classList.add('hidden');
+    driveIframe.classList.remove('hidden');
+    driveIframe.src = `https://drive.google.com/file/d/${driveId}/preview`;
+    document.getElementById('player-controls-drive').classList.remove('hidden');
+    // Nota de arquitectura: al ser un iframe de otro dominio (Drive), el
+    // navegador no nos deja leer su tiempo de reproducción (restricción de
+    // seguridad cross-origin de todos los navegadores, no un límite nuestro).
+    // Por eso aquí no hay progreso automático — se registra "visto" manual.
+  } else {
+    // ---- Modo DEMO: sin archivo de Drive vinculado todavía ----
+    currentPlaybackMode = 'demo';
+    document.getElementById('player-source-tag').textContent = 'Reproducción DEMO';
+    document.getElementById('player-source-tag').classList.add('badge-demo');
+    document.getElementById('btn-center-play').style.display = 'flex';
+    driveIframe.classList.add('hidden'); driveIframe.src = '';
+    document.getElementById('player-controls-drive').classList.add('hidden');
+    document.getElementById('player-controls-native').classList.remove('hidden');
+    videoEl.classList.remove('hidden');
+    videoEl.src = DEMO_VIDEO;
+    const saved = getProgress(contentId, episodeId);
+    videoEl.onloadedmetadata = ()=>{
+      if(saved && saved.position < videoEl.duration - 3) videoEl.currentTime = saved.position;
+      videoEl.play().catch(()=>{});
+    };
+  }
 }
+document.getElementById('btn-mark-watched').addEventListener('click', ()=>{
+  if(!currentEpisode) return;
+  setProgress(currentEpisode.contentId, currentEpisode.episodeId, 1, 1); // 100% visto
+  supabase.from('watch_history').insert({ email: session.user.id, content_id: currentEpisode.contentId, episode_id: currentEpisode.episodeId || null })
+    .then(({error})=>{ if(error) console.error(error); });
+  const h = STATE.history[session.user.id] ||= [];
+  h.push({ contentId: currentEpisode.contentId, episodeId: currentEpisode.episodeId, watchedAt: Date.now() });
+  saveState();
+  toast('✓ Marcado como visto');
+});
 function updateEpNavButtons(c, episodeId){
   const prevBtn = document.getElementById('btn-prev-ep'), nextBtn = document.getElementById('btn-next-ep');
-  if(c.type==='movie' || !episodeId){ prevBtn.style.visibility='hidden'; nextBtn.style.visibility='hidden'; return; }
+  const prevBtnD = document.getElementById('btn-prev-ep-d'), nextBtnD = document.getElementById('btn-next-ep-d');
+  if(c.type==='movie' || !episodeId){
+    [prevBtn,nextBtn].forEach(b=> b.style.visibility='hidden');
+    [prevBtnD,nextBtnD].forEach(b=> b.style.visibility='hidden');
+    return;
+  }
   const flat = c.seasons.flatMap(s=> s.episodes.map(e=>({...e, season:s.number})));
   const idx = flat.findIndex(e=>e.id===episodeId);
-  prevBtn.style.visibility = idx>0 ? 'visible':'hidden';
-  nextBtn.style.visibility = idx < flat.length-1 ? 'visible':'hidden';
-  prevBtn.onclick = ()=> idx>0 && playContent(c.id, flat[idx-1].id);
-  nextBtn.onclick = ()=> idx<flat.length-1 && playContent(c.id, flat[idx+1].id);
+  const hasPrev = idx>0, hasNext = idx < flat.length-1;
+  [prevBtn,prevBtnD].forEach(b=> b.style.visibility = hasPrev?'visible':'hidden');
+  [nextBtn,nextBtnD].forEach(b=> b.style.visibility = hasNext?'visible':'hidden');
+  const goPrev = ()=> hasPrev && playContent(c.id, flat[idx-1].id);
+  const goNext = ()=> hasNext && playContent(c.id, flat[idx+1].id);
+  prevBtn.onclick = goPrev; prevBtnD.onclick = goPrev;
+  nextBtn.onclick = goNext; nextBtnD.onclick = goNext;
 }
 document.getElementById('btn-player-close').addEventListener('click', closePlayer);
 function closePlayer(){
-  if(currentEpisode) saveWatch();
+  if(currentEpisode && currentPlaybackMode==='demo') saveWatch();
   videoEl.pause();
+  driveIframe.src = '';
   document.getElementById('player-overlay').classList.remove('show');
 }
 function saveWatch(){
@@ -1126,9 +1224,10 @@ function renderAdmin(){
   return `<div class="admin-shell">
     <div class="admin-head"><div><h1 class="page-title">👑 NEKOFLIX CONTROL CENTER</h1><p class="page-sub">Panel de administración — datos DEMO</p></div>
       <span class="badge badge-admin">Super Admin: ${session.user.name}</span></div>
-    <div class="notice">⚠️ En este prototipo, la gestión de usuarios se guarda en localStorage solo para demostrar la interfaz. La versión real requiere backend + base de datos segura, y la verificación de autorización debe ocurrir en el servidor, nunca en el navegador.</div>
+    <div class="notice">✅ FASE 5 activa: el contenido que vincules con un ID de Google Drive (pestaña "Drive") se reproduce desde tu Drive real. El resto sigue en modo DEMO hasta que lo vincules. La gestión de usuarios ya vive en Supabase, protegida por reglas del servidor (no en el navegador).</div>
     <div class="admin-tabs">
       <button class="admin-tab ${adminTab==='users'?'active':''}" data-atab="users">👥 Usuarios</button>
+      <button class="admin-tab ${adminTab==='drive'?'active':''}" data-atab="drive">🎬 Drive</button>
       <button class="admin-tab ${adminTab==='importer'?'active':''}" data-atab="importer">📥 Library Importer</button>
       <button class="admin-tab ${adminTab==='stats'?'active':''}" data-atab="stats">📊 Estadísticas</button>
     </div>
@@ -1137,6 +1236,7 @@ function renderAdmin(){
 }
 function renderAdminTab(tab){
   if(tab==='users') return renderAdminUsers();
+  if(tab==='drive') return renderAdminDrive();
   if(tab==='importer') return renderAdminImporter();
   if(tab==='stats') return renderAdminStats();
 }
@@ -1165,6 +1265,43 @@ function renderAdminUsers(){
       </tbody>
     </table></div>`;
 }
+function extractDriveId(input){
+  const v = input.trim();
+  const m = v.match(/\/d\/([a-zA-Z0-9_-]{10,})/) || v.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if(m) return m[1];
+  if(/^[a-zA-Z0-9_-]{15,}$/.test(v)) return v; // ya parece un ID puro
+  return null;
+}
+function flattenPlayableItems(){
+  const items = [];
+  CONTENT.forEach(c=>{
+    if(c.type==='movie'){ items.push({ contentId:c.id, episodeId:'', label:`${c.title} (${c.year})` }); }
+    else (c.seasons||[]).forEach(s=> s.episodes.forEach(e=>{
+      items.push({ contentId:c.id, episodeId:e.id, label:`${c.title} — S${String(s.number).padStart(2,'0')}E${String(e.number).padStart(2,'0')} · ${e.title}` });
+    }));
+  });
+  return items;
+}
+function renderAdminDrive(){
+  const items = flattenPlayableItems();
+  return `
+    <div class="notice">📎 Pega el ID del archivo o el enlace completo para compartir de Google Drive (debe estar compartido como "Cualquiera con el enlace puede ver"). Se guarda en Supabase, así que cualquier usuario autorizado ya puede reproducirlo, desde cualquier dispositivo.</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Contenido</th><th>ID / enlace de Drive</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${items.map(it=>{
+        const key = driveLinkKey(it.contentId, it.episodeId);
+        const current = STATE.driveLinks?.[key] || '';
+        return `<tr>
+          <td class="table-name">${it.label}</td>
+          <td><input class="filter-select" style="width:100%;min-width:180px;" data-drive-input="${key}" data-content="${it.contentId}" data-episode="${it.episodeId}" placeholder="ID o enlace de Drive" value="${current}"></td>
+          <td>${current? '<span class="badge badge-active">🎬 Drive</span>' : '<span class="badge badge-demo">DEMO</span>'}</td>
+          <td><button class="btn btn-sm btn-brand" data-save-drive="${key}">${current?'Actualizar':'Guardar'}</button>${current? ` <button class="btn btn-sm btn-ghost" data-clear-drive="${key}">Quitar</button>`:''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table></div>`;
+}
+
 function renderAdminImporter(){
   return `<div class="importer-box">
     <div class="eyebrow" style="margin-bottom:10px;">📥 LIBRARY IMPORTER — DEMO</div>
@@ -1290,6 +1427,32 @@ function bindAdminHandlers(){
       ${pf('Título', r.title)} ${pf('Tipo', r.type)} ${pf('Temporada', r.season ?? '—')} ${pf('Episodio', r.episode ?? '—')} ${pf('Año', r.year ?? '—')} ${pf('Calidad', r.quality)}
     `;
   });
+  document.querySelectorAll('[data-save-drive]').forEach(el=> el.addEventListener('click', async ()=>{
+    const key = el.dataset.saveDrive;
+    const input = document.querySelector(`[data-drive-input="${key}"]`);
+    const contentId = input.dataset.content, episodeId = input.dataset.episode;
+    const raw = input.value.trim();
+    if(!raw){ toast('Pega un ID o enlace de Drive primero'); return; }
+    const driveId = extractDriveId(raw);
+    if(!driveId){ toast('No reconozco ese formato — pega el ID o el enlace completo de "Compartir"'); return; }
+    const { error } = await supabase.from('content_drive_links').upsert({
+      content_id: contentId, episode_id: episodeId, drive_file_id: driveId, updated_at: new Date().toISOString(),
+    }, { onConflict:'content_id,episode_id' });
+    if(error){ console.error(error); toast('Error al guardar en Supabase (revisa las políticas RLS de la Fase 5)'); return; }
+    STATE.driveLinks[key] = driveId;
+    toast('✅ Vinculado a Google Drive');
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('drive'); bindAdminHandlers();
+  }));
+  document.querySelectorAll('[data-clear-drive]').forEach(el=> el.addEventListener('click', async ()=>{
+    const key = el.dataset.clearDrive;
+    const input = document.querySelector(`[data-drive-input="${key}"]`);
+    const contentId = input.dataset.content, episodeId = input.dataset.episode;
+    const { error } = await supabase.from('content_drive_links').delete().eq('content_id', contentId).eq('episode_id', episodeId);
+    if(error){ console.error(error); toast('Error al quitar el vínculo'); return; }
+    delete STATE.driveLinks[key];
+    toast('Vínculo eliminado — vuelve a modo DEMO');
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('drive'); bindAdminHandlers();
+  }));
 }
 function pf(label,val){ return `<div class="parse-field"><div class="pf-label">${label}</div><div class="pf-value">${val}</div></div>`; }
 
