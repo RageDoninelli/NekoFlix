@@ -574,6 +574,19 @@ const CONTENT = [
     ]) ] },
 ];
 
+/* 🔧 CORRECCIÓN IMPORTANTE: los IDs de episodio generados por ep() usaban
+   Math.random(), es decir, cambiaban en cada carga de página. Eso rompía
+   cualquier dato guardado por episodio entre sesiones (vínculos de Drive,
+   progreso, historial), porque el ID de hoy no coincidía con el de mañana.
+   Aquí los reemplazamos por IDs estables y deterministas basados en el
+   contenido, la temporada y el número de episodio — así son siempre los
+   mismos, sin importar cuántas veces se recargue NekoFlix. */
+CONTENT.forEach(c=>{
+  (c.seasons||[]).forEach(s=>{
+    s.episodes.forEach(e=>{ e.id = `${c.id}-s${s.number}e${e.number}`; });
+  });
+});
+
 /* ---------------- STATE / PERSISTENCE ----------------
    `users` vive en Supabase (fuente de verdad para autorización).
    favorites/watchlist/history/watchProgress AHORA TAMBIÉN viven en
