@@ -523,6 +523,14 @@ const DEMO_VIDEO = "https://interactive-examples.mdn.mozilla.net/media/cc0-video
 const poster = seed => `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/600`;
 const backdrop = seed => `https://picsum.photos/seed/${encodeURIComponent(seed)}b/1280/720`;
 const thumb = seed => `https://picsum.photos/seed/${encodeURIComponent(seed)}t/300/170`;
+/* 🖼️ Imágenes reales (opcional): si un título trae `posterUrl` / `backdropUrl`,
+   o un episodio trae `thumbUrl`, se usan esas en vez del placeholder
+   genérico. Así puedes ir poniendo tus propias portadas poco a poco sin
+   romper nada — lo que no tenga imagen propia, sigue mostrando el
+   placeholder mientras tanto. */
+function posterFor(c){ return c.posterUrl || poster(c.title); }
+function backdropFor(c){ return c.backdropUrl || backdrop(c.title); }
+function thumbForEpisode(c, e){ return (e && e.thumbUrl) || thumb(c.title + (e ? e.number : '')); }
 
 /* ---------------- MODULE: users & authorization (Supabase/Postgres) ----------------
    Tabla `authorized_users`, una fila por correo (email = clave primaria).
@@ -586,6 +594,17 @@ CONTENT.forEach(c=>{
     s.episodes.forEach(e=>{ e.id = `${c.id}-s${s.number}e${e.number}`; });
   });
 });
+
+/* 🖼️ Imágenes propias subidas por el administrador. Ruta relativa dentro
+   del mismo repositorio de GitHub (carpeta imagenes/). Se agregan aquí,
+   una línea por título, según Pemani va subiendo portadas reales. */
+(function applyCustomImages(){
+  const another = CONTENT.find(c=>c.id==='a4');
+  if(another){
+    another.posterUrl = 'imagenes/another-poster.jpg';
+    (another.seasons||[]).forEach(s=> s.episodes.forEach(e=>{ e.thumbUrl = 'imagenes/another-poster.jpg'; }));
+  }
+})();
 
 /* ---------------- STATE / PERSISTENCE ----------------
    `users` vive en Supabase (fuente de verdad para autorización).
@@ -838,7 +857,7 @@ function renderHome(){
 
   return `
     <section class="hero">
-      <div class="hero-bg" style="background-image:url('${backdrop(hero.title)}')"></div>
+      <div class="hero-bg" style="background-image:url('${backdropFor(hero)}')"></div>
       <div class="hero-glow"></div>
       <div class="hero-scrim"></div><div class="hero-scrim-side"></div>
       <div class="hero-content">
@@ -878,7 +897,7 @@ function railWide(title, htmlItems){
 function card(c){
   const isFav = favs().includes(c.id);
   return `<div class="card" data-detail="${c.id}">
-    <div class="card-poster"><img loading="lazy" src="${poster(c.title)}" alt="${c.title}">
+    <div class="card-poster"><img loading="lazy" src="${posterFor(c)}" alt="${c.title}">
       <button class="card-fav ${isFav?'active':''}" data-favtoggle="${c.id}" aria-label="Favorito">${isFav?'❤️':'🤍'}</button>
     </div>
     <div class="card-title">${c.title}</div>
@@ -888,7 +907,7 @@ function card(c){
 function continueCard(x){
   const epLabel = x.episodeId ? episodeLabelFor(x.c, x.episodeId) : null;
   return `<div class="card card-wide" data-continue="${x.c.id}" data-ep="${x.episodeId||''}">
-    <div class="card-poster"><img loading="lazy" src="${thumb(x.c.title+(x.episodeId||''))}" alt="${x.c.title}">
+    <div class="card-poster"><img loading="lazy" src="${thumbForEpisode(x.c, x.episodeId ? findEpisode(x.c, x.episodeId) : null)}" alt="${x.c.title}">
       <div class="card-progress"><i style="width:${x.pct}%"></i></div>
     </div>
     <div class="card-title">${x.c.title}${epLabel? ' · '+epLabel.code:''}</div>
@@ -898,6 +917,10 @@ function continueCard(x){
 function episodeLabelFor(c, episodeId){
   if(c.type==='movie') return null;
   for(const s of c.seasons||[]) for(const e of s.episodes) if(e.id===episodeId) return { code:`S${String(s.number).padStart(2,'0')}E${String(e.number).padStart(2,'0')}`, title:e.title };
+  return null;
+}
+function findEpisode(c, episodeId){
+  for(const s of c.seasons||[]) for(const e of s.episodes) if(e.id===episodeId) return e;
   return null;
 }
 
@@ -956,7 +979,7 @@ function renderHistory(){
       const c = findContent(item.contentId); if(!c) return '';
       const epLabel = item.episodeId? episodeLabelFor(c,item.episodeId): null;
       return `<div class="history-row" data-detail="${c.id}">
-        <img src="${thumb(c.title+(item.episodeId||''))}" alt="">
+        <img src="${thumbForEpisode(c, item.episodeId ? findEpisode(c, item.episodeId) : null)}" alt="">
         <div><div class="history-title">${c.title}${epLabel?' · '+epLabel.code:''}</div><div class="history-meta">${epLabel? epLabel.title : c.genres.join(', ')}</div></div>
         <div class="h-right">${new Date(item.watchedAt).toLocaleDateString('es-ES')}</div>
       </div>`;
@@ -1022,7 +1045,7 @@ function renderDetailPanel(c){
   const inList = list().includes(c.id);
   const isSeries = c.type!=='movie';
   return `
-    <div class="detail-backdrop"><img src="${backdrop(c.title)}" alt=""></div>
+    <div class="detail-backdrop"><img src="${backdropFor(c)}" alt=""></div>
     <div class="detail-body">
       <h2 class="detail-title">${c.title}</h2>
       <div class="detail-meta"><span>${c.year}</span><span class="dot"></span><span>${c.genres.join(' · ')}</span><span class="dot"></span><span>★ ${c.rating}</span>${!isSeries?`<span class="dot"></span><span>${fmtDur(c.duration)}</span>`:''}<span class="dot"></span><span class="badge">${c.quality}</span></div>
@@ -1051,7 +1074,7 @@ function renderEpisodeList(c, s){
     const p = getProgress(c.id, e.id);
     const pct = p && p.duration>0 ? Math.min(100,(p.position/p.duration)*100) : 0;
     return `<div class="ep-row" data-playep="${e.id}" data-season="${s.number}">
-      <div class="ep-thumb"><img src="${thumb(e.title+e.number)}" alt=""><div class="ep-play">▶</div>
+      <div class="ep-thumb"><img src="${thumbForEpisode(c, e)}" alt=""><div class="ep-play">▶</div>
         <div class="ep-thumb-progress"><i style="width:${pct}%"></i></div>
       </div>
       <div class="ep-info"><div class="ep-top"><span class="ep-num">S${String(s.number).padStart(2,'0')}E${String(e.number).padStart(2,'0')}</span><span class="ep-title">${e.title}</span></div><div class="ep-synopsis">${e.synopsis}</div></div>
