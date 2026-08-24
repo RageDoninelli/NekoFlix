@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>NEKOFLIX</title>
+<!-- FASE 8: PWA — permite "instalar" NekoFlix en la pantalla de inicio -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#08090c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NekoFlix">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -139,7 +148,8 @@ input, select{font-family:inherit;}
 #app{ display:none; min-height:100vh; }
 #topnav{
   position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; gap:22px;
-  padding:14px 28px; transition:background .25s var(--ease), border-color .25s var(--ease), backdrop-filter .25s;
+  padding:calc(14px + env(safe-area-inset-top)) calc(28px + env(safe-area-inset-right)) 14px calc(28px + env(safe-area-inset-left));
+  transition:background .25s var(--ease), border-color .25s var(--ease), backdrop-filter .25s;
   border-bottom:1px solid transparent;
 }
 #topnav.scrolled{ background:rgba(8,9,12,.86); backdrop-filter:blur(14px); border-bottom-color:var(--border); }
@@ -223,7 +233,7 @@ input, select{font-family:inherit;}
 
 /* Sorprendeme FAB */
 .fab-surprise{
-  position:fixed; right:24px; bottom:24px; z-index:80; padding:14px 20px; border-radius:999px; border:none;
+  position:fixed; right:calc(24px + env(safe-area-inset-right)); bottom:calc(24px + env(safe-area-inset-bottom)); z-index:80; padding:14px 20px; border-radius:999px; border:none;
   background:var(--gradient-brand); color:#04050a; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;
   box-shadow:0 10px 30px rgba(124,92,252,.35);
 }
@@ -382,6 +392,8 @@ tr:last-child td{ border-bottom:none; }
         <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 16 4 9 8.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.4 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9 39.4 16 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.4C41.5 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
         Continuar con Google
       </button>
+      <button class="btn btn-ghost hidden" id="btn-install-app" style="width:100%;justify-content:center;">📲 Instalar NekoFlix en este dispositivo</button>
+      <p class="login-foot hidden" id="ios-install-hint">📲 Para instalarla: toca <b>Compartir</b> en Safari → <b>Añadir a pantalla de inicio</b>.</p>
     </div>
     <p class="login-foot">Plataforma privada de <b>V.I.V.A.</b>-style personal streaming. El acceso requiere una cuenta autorizada por el administrador. Tener el enlace no otorga acceso.</p>
   </div>
@@ -1621,6 +1633,43 @@ document.getElementById('btn-burger').addEventListener('click', ()=>{
   toast('Menú: '+links);
   toggleUserMenu();
 });
+
+/* ================================================================
+   FASE 8 — PWA: registro del Service Worker + instalación en el
+   dispositivo. Todo aquí es opcional/adicional — si algo falla
+   (por ejemplo, el navegador no soporta Service Workers), NekoFlix
+   sigue funcionando normal como página web, solo sin estas mejoras.
+   ================================================================ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=> console.error('SW register:', err));
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('btn-install-app').classList.remove('hidden');
+});
+document.getElementById('btn-install-app').addEventListener('click', async ()=>{
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('btn-install-app').classList.add('hidden');
+});
+window.addEventListener('appinstalled', ()=>{
+  document.getElementById('btn-install-app').classList.add('hidden');
+});
+
+// iOS/Safari no dispara "beforeinstallprompt" — se le muestra la
+// instrucción manual en su lugar, solo si no está ya instalada.
+(function iosInstallHint(){
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if(isIos && !isStandalone) document.getElementById('ios-install-hint').classList.remove('hidden');
+})();
 </script>
 </body>
 </html>
