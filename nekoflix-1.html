@@ -543,68 +543,27 @@ function thumbForEpisode(c, e){ return (e && e.thumbUrl) || thumb(c.title + (e ?
 function ep(n, title, dur, syn){ return { id:'e'+Math.random().toString(36).slice(2,8), number:n, title, duration:dur, synopsis:syn, thumbSeed:title+n, watched:false, progress:0 }; }
 function season(num, episodes){ return { number:num, episodes }; }
 
-const CONTENT = [
-  { id:'m1', type:'movie', title:'Interstellar', year:2014, genres:['Ciencia ficción','Drama'], synopsis:'Un grupo de exploradores atraviesa un agujero de gusano en busca de un nuevo hogar para la humanidad.', duration:169, rating:8.6, quality:'4K', audio:['ES','EN'], subtitles:['ES','EN'], dateAdded:'2025-04-01' },
-  { id:'m2', type:'movie', title:'Amélie', year:2001, genres:['Comedia','Romance'], synopsis:'Una joven camarera parisina decide cambiar en secreto la vida de quienes la rodean.', duration:122, rating:8.3, quality:'1080p', audio:['FR'], subtitles:['ES'], dateAdded:'2025-04-03' },
-  { id:'m3', type:'movie', title:'Coco', year:2017, genres:['Animación','Familiar'], synopsis:'Un niño músico viaja a la Tierra de los Muertos para descubrir el secreto de su familia.', duration:105, rating:8.4, quality:'4K', audio:['ES'], subtitles:['ES','EN'], dateAdded:'2025-05-10' },
-  { id:'m4', type:'movie', title:'Blade Runner 2049', year:2017, genres:['Ciencia ficción','Thriller'], synopsis:'Un nuevo blade runner desentierra un secreto que amenaza con desestabilizar lo que queda de la sociedad.', duration:164, rating:8.0, quality:'1080p', audio:['ES','EN'], subtitles:['ES'], dateAdded:'2025-05-22' },
-  { id:'m5', type:'movie', title:'Whiplash', year:2014, genres:['Drama','Música'], synopsis:'Un baterista de jazz busca la perfección bajo la presión de un profesor implacable.', duration:107, rating:8.5, quality:'1080p', audio:['EN'], subtitles:['ES'], dateAdded:'2025-06-02' },
-  { id:'m6', type:'movie', title:'Your Name', year:2016, genres:['Animación','Romance'], synopsis:'Dos desconocidos comienzan a intercambiar cuerpos misteriosamente y sus destinos se entrelazan.', duration:106, rating:8.4, quality:'4K', audio:['JA'], subtitles:['ES'], dateAdded:'2025-06-14' },
-
-  { id:'s1', type:'series', title:'One Piece', year:1999, genres:['Aventura','Anime'], synopsis:'Un joven pirata reúne una tripulación para encontrar el mayor tesoro del mundo.', rating:8.9, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2025-03-15',
-    seasons:[ season(1,[ ep(1,'Romance Dawn','24 min','El comienzo del viaje de Luffy.'), ep(2,'La gran flota del capitán Buggy','24 min','Aparece un peligroso rival pirata.'), ep(14,'La captura de Nami','23 min','Nami se enfrenta a su pasado con Arlong.') ]) ] },
-  { id:'s2', type:'series', title:'Estación Norte', year:2022, genres:['Drama','Misterio'], synopsis:'En un pueblo aislado por la nieve, una desaparición remueve secretos familiares.', rating:7.8, quality:'1080p', audio:['ES'], subtitles:['ES','EN'], dateAdded:'2025-02-20',
-    seasons:[ season(1,[ ep(1,'La última parada','48 min','Una llegada inesperada altera el pueblo.'), ep(2,'Huellas en la nieve','45 min','Aparecen las primeras pistas.'), ep(3,'El silencio de los vecinos','47 min','Nadie quiere hablar con la policía.') ]) ] },
-  { id:'s3', type:'series', title:'Laboratorio Cero', year:2021, genres:['Ciencia ficción','Thriller'], synopsis:'Un equipo de científicos descubre que su último experimento ha alterado la realidad.', rating:8.1, quality:'4K', audio:['ES','EN'], subtitles:['ES'], dateAdded:'2025-07-01',
-    seasons:[ season(1,[ ep(1,'Punto cero','42 min','El experimento sale mal por primera vez.'), ep(2,'Bucle','40 min','El equipo nota que el día se repite.') ]), season(2,[ ep(1,'Fractura','44 min','Las consecuencias del bucle se manifiestan.') ]) ] },
-
-  { id:'a1', type:'anime', title:'Attack on Titan', year:2013, genres:['Acción','Anime','Drama'], synopsis:'La humanidad lucha por sobrevivir tras muros que la protegen de gigantes devoradores de hombres.', rating:9.0, quality:'4K', audio:['JA'], subtitles:['ES'], dateAdded:'2025-01-20',
-    seasons:[ season(1,[ ep(1,'A ti, dentro de 2000 años','24 min','Un titán colosal destruye el muro.'), ep(2,'Ese día','24 min','El inicio de la caída de Shiganshina.') ]) ] },
-  { id:'a2', type:'anime', title:'Frieren: Beyond Journey\u2019s End', year:2023, genres:['Fantasía','Anime'], synopsis:'Una maga élfica reflexiona sobre el tiempo tras la muerte de sus compañeros de aventura.', rating:9.1, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2025-06-01',
-    seasons:[ season(1,[ ep(1,'La bruja del recuerdo','24 min','Frieren emprende un nuevo viaje.'), ep(2,'El país natal de Himmel','24 min','Un reencuentro con el pasado.') ]) ] },
-  { id:'a3', type:'anime', title:'Kiki y el Bosque Azul', year:2020, genres:['Aventura','Anime','Familiar'], synopsis:'Una joven bruja aprende a valerse por sí misma en una ciudad junto al mar.', rating:7.9, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2025-05-30',
-    seasons:[ season(1,[ ep(1,'La partida','23 min','Kiki deja su hogar para iniciar su entrenamiento.') ]) ] },
-  { id:'a4', type:'anime', title:'Another', year:2012, genres:['Misterio','Terror','Anime'], synopsis:'En una escuela apartada de un pueblo de montaña, un estudiante recién trasladado descubre que un aula guarda un secreto ligado a una alumna fallecida años atrás — y que ignorarlo puede costarle la vida a quien lo descubra.', rating:7.6, quality:'1080p', audio:['JA'], subtitles:['ES'], dateAdded:'2026-08-22',
-    seasons:[ season(1,[
-      ep(1,'Episodio 1','24 min','El traslado de Kōichi a la clase 3 y su primer encuentro con Mei.'),
-      ep(2,'Episodio 2','24 min','Kōichi nota algo extraño en la actitud de sus compañeros hacia Mei.'),
-      ep(3,'Episodio 3','24 min','Un suceso inesperado sacude a la clase 3.'),
-      ep(4,'Episodio 4','24 min','Kōichi investiga el pasado de la clase.'),
-      ep(5,'Episodio 5','24 min','Salen a la luz más detalles sobre "el fenómeno".'),
-      ep(6,'Episodio 6','24 min','La tensión en el salón de clases aumenta.'),
-      ep(7,'Episodio 7','24 min','Un plan para detener la serie de sucesos comienza a tomar forma.'),
-      ep(8,'Episodio 8','24 min','Nuevas pistas complican lo que creían entender.'),
-      ep(9,'Episodio 9','24 min','La situación se vuelve más peligrosa para todos.'),
-      ep(10,'Episodio 10','24 min','Se acercan al origen de "el fenómeno".'),
-      ep(11,'Episodio 11','24 min','La clase se prepara para un desenlace inevitable.'),
-      ep(12,'Episodio 12','24 min','El cierre de la historia principal.'),
-      ep(13,'Episodio 13 (OVA)','24 min','Un episodio adicional que expande la historia.'),
-    ]) ] },
-];
-
-/* 🔧 CORRECCIÓN IMPORTANTE: los IDs de episodio generados por ep() usaban
-   Math.random(), es decir, cambiaban en cada carga de página. Eso rompía
-   cualquier dato guardado por episodio entre sesiones (vínculos de Drive,
-   progreso, historial), porque el ID de hoy no coincidía con el de mañana.
-   Aquí los reemplazamos por IDs estables y deterministas basados en el
-   contenido, la temporada y el número de episodio — así son siempre los
-   mismos, sin importar cuántas veces se recargue NekoFlix. */
-CONTENT.forEach(c=>{
-  (c.seasons||[]).forEach(s=>{
-    s.episodes.forEach(e=>{ e.id = `${c.id}-s${s.number}e${e.number}`; });
-  });
-});
-
-/* 🖼️ Imágenes propias subidas por el administrador. Ruta relativa dentro
-   del mismo repositorio de GitHub (carpeta imagenes/). Se agregan aquí,
-   una línea por título, según Pemani va subiendo portadas reales. */
-(function applyCustomImages(){
-  const another = CONTENT.find(c=>c.id==='a4');
-  if(another){
-    another.posterUrl = 'imagenes/another-poster.jpg';
-    (another.seasons||[]).forEach(s=> s.episodes.forEach(e=>{ e.thumbUrl = 'imagenes/another-poster.jpg'; }));
-  }
-})();
+/* ---------------- MODULE: content (Fase 7 — catálogo real en Supabase) ----------------
+   El catálogo ya NO vive fijo en el código: se guarda en la tabla
+   catalog_items (un documento JSON por título) y se carga al iniciar
+   sesión. El Super Admin lo gestiona desde Control Center → Catálogo,
+   sin que haya que tocar el código cada vez que se agrega un título. */
+let CONTENT = [];
+async function loadCatalog(){
+  const { data, error } = await supabase.from('catalog_items').select('id, data').order('id');
+  if(error){ console.error('loadCatalog:', error); CONTENT = []; return; }
+  CONTENT = data.map(row=> ({ id: row.id, ...row.data }));
+}
+async function saveCatalogItem(id, data){
+  const { error } = await supabase.from('catalog_items').upsert({ id, data, updated_at: new Date().toISOString() });
+  return error;
+}
+async function deleteCatalogItem(id){
+  const { error } = await supabase.from('catalog_items').delete().eq('id', id);
+  return error;
+}
+function newContentId(prefix){ return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`; }
+function newEpisodeId(contentId, seasonNum, epNum){ return `${contentId}-s${seasonNum}e${epNum}`; }
 
 /* ---------------- STATE / PERSISTENCE ----------------
    `users` vive en Supabase (fuente de verdad para autorización).
@@ -725,6 +684,7 @@ async function handleAuthenticatedUser(supabaseUser){
     avatarLetter: (record.name || email)[0].toUpperCase(),
     createdAt: record.createdAt, lastAccess: new Date().toISOString(),
   };
+  await loadCatalog(); // FASE 7: trae el catálogo real desde Supabase
   await loadUserData(); // FASE 4: trae favoritos/lista/historial/progreso ya sincronizados
   await loadDriveLinks(); // FASE 5: trae qué contenido ya está vinculado a Google Drive
   toast(`Bienvenido a NekoFlix, ${session.user.name}.`);
@@ -931,7 +891,7 @@ function renderBrowse(type, title){
   const genres = [...new Set(CONTENT.filter(c=>c.type===type).flatMap(c=>c.genres))];
   const years = [...new Set(CONTENT.filter(c=>c.type===type).map(c=>c.year))].sort((a,b)=>b-a);
   return `
-    <div class="page-head"><h1 class="page-title">${title}</h1><p class="page-sub">Catálogo DEMO · ${items.length} títulos</p></div>
+    <div class="page-head"><h1 class="page-title">${title}</h1><p class="page-sub">${items.length} títulos</p></div>
     <div class="filter-bar">
       <select class="filter-select" id="f-genre"><option value="">Género</option>${genres.map(g=>`<option ${currentFilters.genre===g?'selected':''}>${g}</option>`).join('')}</select>
       <select class="filter-select" id="f-year"><option value="">Año</option>${years.map(y=>`<option ${String(currentFilters.year)===String(y)?'selected':''}>${y}</option>`).join('')}</select>
@@ -1255,14 +1215,17 @@ videoEl.addEventListener('ended', ()=>{ if(currentEpisode) saveWatch(); });
    ADMIN — NEKOFLIX CONTROL CENTER
    ================================================================ */
 let adminTab = 'users';
+let catalogEditingId = null; // null = viendo la lista; 'NEW' = creando; id = editando ese título
+let catalogDraft = null;     // objeto en construcción mientras se edita/crea
 function renderAdmin(){
   if(session.user.role!=='SUPER_ADMIN') return emptyState('🔒','Acceso restringido','Solo el Super Admin puede entrar a NEKOFLIX CONTROL CENTER.');
   return `<div class="admin-shell">
-    <div class="admin-head"><div><h1 class="page-title">👑 NEKOFLIX CONTROL CENTER</h1><p class="page-sub">Panel de administración — datos DEMO</p></div>
+    <div class="admin-head"><div><h1 class="page-title">👑 NEKOFLIX CONTROL CENTER</h1><p class="page-sub">Panel de administración</p></div>
       <span class="badge badge-admin">Super Admin: ${session.user.name}</span></div>
-    <div class="notice">✅ FASE 5 activa: el contenido que vincules con un ID de Google Drive (pestaña "Drive") se reproduce desde tu Drive real. El resto sigue en modo DEMO hasta que lo vincules. La gestión de usuarios ya vive en Supabase, protegida por reglas del servidor (no en el navegador).</div>
+    <div class="notice">✅ FASE 7 activa: el catálogo (títulos, temporadas y episodios) ya vive en Supabase y se gestiona aquí, sin tocar código. La gestión de usuarios también vive en Supabase, protegida por reglas del servidor (no en el navegador).</div>
     <div class="admin-tabs">
       <button class="admin-tab ${adminTab==='users'?'active':''}" data-atab="users">👥 Usuarios</button>
+      <button class="admin-tab ${adminTab==='catalog'?'active':''}" data-atab="catalog">🗂️ Catálogo</button>
       <button class="admin-tab ${adminTab==='drive'?'active':''}" data-atab="drive">🎬 Drive</button>
       <button class="admin-tab ${adminTab==='importer'?'active':''}" data-atab="importer">📥 Library Importer</button>
       <button class="admin-tab ${adminTab==='stats'?'active':''}" data-atab="stats">📊 Estadísticas</button>
@@ -1272,6 +1235,7 @@ function renderAdmin(){
 }
 function renderAdminTab(tab){
   if(tab==='users') return renderAdminUsers();
+  if(tab==='catalog') return renderAdminCatalog();
   if(tab==='drive') return renderAdminDrive();
   if(tab==='importer') return renderAdminImporter();
   if(tab==='stats') return renderAdminStats();
@@ -1318,6 +1282,89 @@ function flattenPlayableItems(){
   });
   return items;
 }
+/* ---------------- FASE 7: Catálogo (crear / editar / borrar títulos) ---------------- */
+function blankDraft(type){
+  return { type, title:'', year:new Date().getFullYear(), genres:[], synopsis:'', posterUrl:'', backdropUrl:'', duration:0, rating:0, quality:'1080p', audio:[], subtitles:['ES'], dateAdded:new Date().toISOString().slice(0,10), seasons: type==='movie'? undefined : [] };
+}
+function renderAdminCatalog(){
+  if(catalogEditingId !== null) return renderCatalogEditor();
+  return `
+    <div class="add-user-form"><button class="btn btn-brand btn-sm" data-new-title="movie">+ Película</button>
+      <button class="btn btn-brand btn-sm" data-new-title="series">+ Serie</button>
+      <button class="btn btn-brand btn-sm" data-new-title="anime">+ Anime</button></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Título</th><th>Tipo</th><th>Año</th><th>Episodios</th><th></th></tr></thead>
+      <tbody>${CONTENT.map(c=>{
+        const epCount = (c.seasons||[]).reduce((n,s)=>n+s.episodes.length,0);
+        return `<tr>
+          <td class="table-name">${c.title}</td>
+          <td>${c.type==='movie'?'Película':c.type==='series'?'Serie':'Anime'}</td>
+          <td>${c.year}</td>
+          <td>${c.type==='movie'?'—':epCount}</td>
+          <td class="row-actions"><button class="btn btn-sm btn-ghost" data-edit-title="${c.id}">Editar</button><button class="btn btn-sm btn-ghost" data-delete-title="${c.id}">Borrar</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+function renderCatalogEditor(){
+  const d = catalogDraft;
+  const isNew = catalogEditingId === 'NEW';
+  return `
+    <div class="notice">${isNew? '📝 Creando un título nuevo.' : `✏️ Editando "${d.title}".`} Los campos con datos separados por coma (géneros, audio, subtítulos) se guardan como lista.</div>
+    <div class="importer-box">
+      <label class="eyebrow">Título</label>
+      <input id="cf-title" placeholder="Título" value="${d.title||''}">
+      <label class="eyebrow">Año</label>
+      <input id="cf-year" type="number" placeholder="Año" value="${d.year||''}">
+      <label class="eyebrow">Géneros (separados por coma)</label>
+      <input id="cf-genres" placeholder="Ej: Drama, Misterio" value="${(d.genres||[]).join(', ')}">
+      <label class="eyebrow">Sinopsis</label>
+      <input id="cf-synopsis" placeholder="Sinopsis breve" value="${(d.synopsis||'').replace(/"/g,'&quot;')}">
+      <label class="eyebrow">URL de póster (opcional, ruta dentro del repositorio)</label>
+      <input id="cf-poster" placeholder="imagenes/mi-poster.jpg" value="${d.posterUrl||''}">
+      <label class="eyebrow">URL de fondo/backdrop (opcional)</label>
+      <input id="cf-backdrop" placeholder="imagenes/mi-backdrop.jpg" value="${d.backdropUrl||''}">
+      ${d.type==='movie'? `<label class="eyebrow">Duración en minutos</label><input id="cf-duration" type="number" value="${d.duration||''}">` : ''}
+      <label class="eyebrow">Calificación (0-10)</label>
+      <input id="cf-rating" type="number" step="0.1" value="${d.rating||''}">
+      <label class="eyebrow">Calidad</label>
+      <input id="cf-quality" placeholder="1080p / 4K" value="${d.quality||''}">
+      <label class="eyebrow">Audio (separado por coma)</label>
+      <input id="cf-audio" placeholder="Ej: ES, EN" value="${(d.audio||[]).join(', ')}">
+      <label class="eyebrow">Subtítulos (separado por coma)</label>
+      <input id="cf-subtitles" placeholder="Ej: ES" value="${(d.subtitles||[]).join(', ')}">
+    </div>
+    ${d.type!=='movie'? renderSeasonEditor() : ''}
+    <div class="detail-actions">
+      <button class="btn btn-brand" id="btn-save-title">💾 Guardar título</button>
+      <button class="btn btn-ghost" id="btn-cancel-title">Cancelar</button>
+    </div>`;
+}
+function renderSeasonEditor(){
+  const d = catalogDraft;
+  const rows = (d.seasons||[]).flatMap(s=> s.episodes.map(e=>({s,e})));
+  return `
+    <div class="eyebrow" style="margin:18px 0 10px;">Episodios (${rows.length})</div>
+    <div class="table-wrap" style="margin-bottom:16px;">
+      ${rows.length? rows.map(({s,e})=>`
+        <div class="ep-row" style="border-radius:0;border-left:none;border-right:none;">
+          <div class="ep-info"><div class="ep-top"><span class="ep-num">S${String(s.number).padStart(2,'0')}E${String(e.number).padStart(2,'0')}</span><span class="ep-title">${e.title}</span></div><div class="ep-synopsis">${e.synopsis||''}</div></div>
+          <div class="ep-dur">${e.duration||''}</div>
+          <button class="btn btn-sm btn-ghost" data-remove-ep="${s.number}:${e.number}">Quitar</button>
+        </div>`).join('') : '<div style="padding:16px;color:var(--text-faint);font-size:13px;">Sin episodios todavía.</div>'}
+    </div>
+    <div class="importer-box">
+      <div class="eyebrow" style="margin-bottom:10px;">+ Agregar episodio</div>
+      <input id="ep-season" type="number" placeholder="N.º de temporada" value="1" style="margin-bottom:8px;">
+      <input id="ep-number" type="number" placeholder="N.º de episodio">
+      <input id="ep-title" placeholder="Título del episodio">
+      <input id="ep-duration" placeholder="Duración (ej: 24 min)">
+      <input id="ep-synopsis" placeholder="Sinopsis breve">
+      <input id="ep-thumb" placeholder="URL de miniatura (opcional)">
+      <button class="btn btn-sm btn-brand" id="btn-add-episode">+ Agregar episodio</button>
+    </div>`;
+}
+
 function renderAdminDrive(){
   const items = flattenPlayableItems();
   return `
@@ -1462,6 +1509,82 @@ function bindAdminHandlers(){
     document.getElementById('parse-result').innerHTML = `
       ${pf('Título', r.title)} ${pf('Tipo', r.type)} ${pf('Temporada', r.season ?? '—')} ${pf('Episodio', r.episode ?? '—')} ${pf('Año', r.year ?? '—')} ${pf('Calidad', r.quality)}
     `;
+  });
+  document.querySelectorAll('[data-new-title]').forEach(el=> el.addEventListener('click', ()=>{
+    catalogDraft = blankDraft(el.dataset.newTitle);
+    catalogEditingId = 'NEW';
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  }));
+  document.querySelectorAll('[data-edit-title]').forEach(el=> el.addEventListener('click', ()=>{
+    const c = CONTENT.find(x=>x.id===el.dataset.editTitle);
+    if(!c) return;
+    catalogDraft = JSON.parse(JSON.stringify(c));
+    catalogEditingId = c.id;
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  }));
+  document.querySelectorAll('[data-delete-title]').forEach(el=> el.addEventListener('click', async ()=>{
+    if(!confirm('¿Borrar este título del catálogo? Los favoritos/historial ya guardados sobre él quedarán huérfanos, pero no se romperá nada.')) return;
+    const error = await deleteCatalogItem(el.dataset.deleteTitle);
+    if(error){ console.error(error); toast('Error al borrar en Supabase'); return; }
+    await loadCatalog();
+    toast('Título eliminado');
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  }));
+  const cancelBtn = document.getElementById('btn-cancel-title');
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{
+    catalogEditingId = null; catalogDraft = null;
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  });
+  const addEpBtn = document.getElementById('btn-add-episode');
+  if(addEpBtn) addEpBtn.addEventListener('click', ()=>{
+    const sNum = parseInt(document.getElementById('ep-season').value,10) || 1;
+    const eNum = parseInt(document.getElementById('ep-number').value,10);
+    const title = document.getElementById('ep-title').value.trim();
+    const duration = document.getElementById('ep-duration').value.trim();
+    const synopsis = document.getElementById('ep-synopsis').value.trim();
+    const thumbUrl = document.getElementById('ep-thumb').value.trim();
+    if(!eNum || !title){ toast('Falta el número o el título del episodio'); return; }
+    catalogDraft.seasons ||= [];
+    let season = catalogDraft.seasons.find(s=>s.number===sNum);
+    if(!season){ season = { number:sNum, episodes:[] }; catalogDraft.seasons.push(season); catalogDraft.seasons.sort((a,b)=>a.number-b.number); }
+    season.episodes = season.episodes.filter(e=>e.number!==eNum); // reemplaza si ya existía ese número
+    season.episodes.push({ number:eNum, title, duration, synopsis, thumbUrl: thumbUrl||undefined });
+    season.episodes.sort((a,b)=>a.number-b.number);
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  });
+  document.querySelectorAll('[data-remove-ep]').forEach(el=> el.addEventListener('click', ()=>{
+    const [sNum, eNum] = el.dataset.removeEp.split(':').map(Number);
+    const season = catalogDraft.seasons.find(s=>s.number===sNum);
+    if(season) season.episodes = season.episodes.filter(e=>e.number!==eNum);
+    catalogDraft.seasons = catalogDraft.seasons.filter(s=>s.episodes.length>0);
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
+  }));
+  const saveTitleBtn = document.getElementById('btn-save-title');
+  if(saveTitleBtn) saveTitleBtn.addEventListener('click', async ()=>{
+    const title = document.getElementById('cf-title').value.trim();
+    if(!title){ toast('El título es obligatorio'); return; }
+    catalogDraft.title = title;
+    catalogDraft.year = parseInt(document.getElementById('cf-year').value,10) || catalogDraft.year;
+    catalogDraft.genres = document.getElementById('cf-genres').value.split(',').map(s=>s.trim()).filter(Boolean);
+    catalogDraft.synopsis = document.getElementById('cf-synopsis').value.trim();
+    catalogDraft.posterUrl = document.getElementById('cf-poster').value.trim() || undefined;
+    catalogDraft.backdropUrl = document.getElementById('cf-backdrop').value.trim() || undefined;
+    if(catalogDraft.type==='movie') catalogDraft.duration = parseInt(document.getElementById('cf-duration').value,10) || 0;
+    catalogDraft.rating = parseFloat(document.getElementById('cf-rating').value) || 0;
+    catalogDraft.quality = document.getElementById('cf-quality').value.trim() || '1080p';
+    catalogDraft.audio = document.getElementById('cf-audio').value.split(',').map(s=>s.trim()).filter(Boolean);
+    catalogDraft.subtitles = document.getElementById('cf-subtitles').value.split(',').map(s=>s.trim()).filter(Boolean);
+
+    const id = catalogEditingId==='NEW' ? newContentId(catalogDraft.type[0]) : catalogEditingId;
+    // Asigna IDs estables a episodios nuevos (los que aún no tienen id)
+    (catalogDraft.seasons||[]).forEach(s=> s.episodes.forEach(e=>{ e.id = e.id || newEpisodeId(id, s.number, e.number); }));
+    const { id:_drop, ...dataToSave } = catalogDraft;
+    const error = await saveCatalogItem(id, dataToSave);
+    if(error){ console.error(error); toast('Error al guardar en Supabase (revisa las políticas RLS de la Fase 7)'); return; }
+    await loadCatalog();
+    catalogEditingId = null; catalogDraft = null;
+    toast('✅ Título guardado');
+    document.getElementById('admin-panel-content').innerHTML = renderAdminTab('catalog'); bindAdminHandlers();
   });
   document.querySelectorAll('[data-save-drive]').forEach(el=> el.addEventListener('click', async ()=>{
     const key = el.dataset.saveDrive;
