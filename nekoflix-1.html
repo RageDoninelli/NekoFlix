@@ -444,11 +444,7 @@ tr:last-child td{ border-bottom:none; }
 
 <!-- PLAYER -->
 <div id="player-overlay">
-  <div class="player-topbar">
-    <div class="player-title-block">
-      <div class="p-title" id="player-title">—</div>
-      <div class="p-sub" id="player-sub"></div>
-    </div>
+  <div class="player-topbar" style="justify-content:flex-end;">
     <button class="player-btn" id="btn-player-close" aria-label="Cerrar reproductor" style="font-size:20px;">✕</button>
   </div>
   <span class="badge badge-demo player-demo-tag" id="player-source-tag">Reproducción DEMO</span>
@@ -471,7 +467,7 @@ tr:last-child td{ border-bottom:none; }
   <div class="player-controls hidden" id="player-controls-drive">
     <div class="player-row" style="justify-content:space-between;">
       <button class="player-btn" id="btn-prev-ep-d" aria-label="Episodio anterior" style="width:auto;padding:0 10px;">⏮ Anterior</button>
-      <button class="btn btn-primary btn-sm" id="btn-mark-watched">✓ Marcar como visto</button>
+      <div class="spacer"></div>
       <button class="player-btn" id="btn-next-ep-d" aria-label="Siguiente episodio" style="width:auto;padding:0 10px;">Siguiente ⏭</button>
     </div>
   </div>
@@ -1112,9 +1108,6 @@ function playContent(contentId, episodeId){
   closeDetail();
   const c = findContent(contentId);
   currentEpisode = { contentId, episodeId: episodeId || null };
-  const label = episodeId ? episodeLabelFor(c, episodeId) : null;
-  document.getElementById('player-title').textContent = c.title;
-  document.getElementById('player-sub').textContent = label ? `${label.code} · ${label.title}` : `${c.year} · ${c.quality}`;
   document.getElementById('player-overlay').classList.add('show');
   updateEpNavButtons(c, episodeId);
 
@@ -1133,7 +1126,9 @@ function playContent(contentId, episodeId){
     // Nota de arquitectura: al ser un iframe de otro dominio (Drive), el
     // navegador no nos deja leer su tiempo de reproducción (restricción de
     // seguridad cross-origin de todos los navegadores, no un límite nuestro).
-    // Por eso aquí no hay progreso automático — se registra "visto" manual.
+    // Por eso aquí no hay progreso automático — se registra "visto" solo
+    // al abrir el reproductor (ver markDriveContentWatched más abajo).
+    markDriveContentWatched(contentId, episodeId);
   } else {
     // ---- Modo DEMO: sin archivo de Drive vinculado todavía ----
     currentPlaybackMode = 'demo';
@@ -1152,16 +1147,14 @@ function playContent(contentId, episodeId){
     };
   }
 }
-document.getElementById('btn-mark-watched').addEventListener('click', ()=>{
-  if(!currentEpisode) return;
-  setProgress(currentEpisode.contentId, currentEpisode.episodeId, 1, 1); // 100% visto
-  supabase.from('watch_history').insert({ email: session.user.id, content_id: currentEpisode.contentId, episode_id: currentEpisode.episodeId || null })
-    .then(({error})=>{ if(error) console.error(error); });
+function markDriveContentWatched(contentId, episodeId){
+  setProgress(contentId, episodeId, 1, 1); // 100% visto — ya sincroniza watch_progress
   const h = STATE.history[session.user.id] ||= [];
-  h.push({ contentId: currentEpisode.contentId, episodeId: currentEpisode.episodeId, watchedAt: Date.now() });
+  h.push({ contentId, episodeId, watchedAt: Date.now() });
   saveState();
-  toast('✓ Marcado como visto');
-});
+  supabase.from('watch_history').insert({ email: session.user.id, content_id: contentId, episode_id: episodeId || null })
+    .then(({error})=>{ if(error) console.error(error); });
+}
 function updateEpNavButtons(c, episodeId){
   const prevBtn = document.getElementById('btn-prev-ep'), nextBtn = document.getElementById('btn-next-ep');
   const prevBtnD = document.getElementById('btn-prev-ep-d'), nextBtnD = document.getElementById('btn-next-ep-d');
