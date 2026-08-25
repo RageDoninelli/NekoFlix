@@ -539,7 +539,7 @@ const thumb = seed => `https://picsum.photos/seed/${encodeURIComponent(seed)}t/3
    placeholder mientras tanto. */
 function posterFor(c){ return c.posterUrl || poster(c.title); }
 function backdropFor(c){ return c.backdropUrl || backdrop(c.title); }
-function thumbForEpisode(c, e){ return (e && e.thumbUrl) || thumb(c.title + (e ? e.number : '')); }
+function thumbForEpisode(c, e){ return (e && e.thumbUrl) || c.posterUrl || thumb(c.title + (e ? e.number : '')); }
 
 /* ---------------- MODULE: users & authorization (Supabase/Postgres) ----------------
    Tabla `authorized_users`, una fila por correo (email = clave primaria).
@@ -1635,6 +1635,16 @@ document.getElementById('btn-burger').addEventListener('click', ()=>{
    (por ejemplo, el navegador no soporta Service Workers), NekoFlix
    sigue funcionando normal como página web, solo sin estas mejoras.
    ================================================================ */
+/* Aviso de seguridad: si hay un título a medio crear/editar en el
+   Catálogo (con episodios sin guardar) y el navegador intenta salir o
+   recargar la página, se advierte antes de perder ese trabajo. */
+window.addEventListener('beforeunload', (e)=>{
+  if(catalogEditingId !== null){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(err=> console.error('SW register:', err));
