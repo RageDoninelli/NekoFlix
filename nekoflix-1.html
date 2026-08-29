@@ -623,6 +623,21 @@ function list(){ session.user && (STATE.watchlist[session.user.id] ||= []); retu
 function hist(){ session.user && (STATE.history[session.user.id] ||= []); return STATE.history[session.user.id] || []; }
 function progKey(contentId, episodeId){ return session.user.id + '::' + contentId + (episodeId ? '::'+episodeId : ''); }
 function getProgress(contentId, episodeId){ return STATE.watchProgress[progKey(contentId, episodeId)]; }
+/* Para el botón grande "▶ Reproducir" en series/anime: no sirve reproducir
+   "la serie" en general, hay que elegir un episodio. Si ya hay progreso
+   sin terminar en algún episodio, continúa ahí; si no, salta al Episodio 1. */
+function resumeEpisodeId(c){
+  if(!c || c.type==='movie' || !c.seasons?.length) return null;
+  let best = null;
+  c.seasons.forEach(s=> s.episodes.forEach(e=>{
+    const p = getProgress(c.id, e.id);
+    if(p && p.duration>0 && (p.position/p.duration) < 0.9){
+      if(!best || p.updatedAt > best.updatedAt) best = { id:e.id, updatedAt:p.updatedAt };
+    }
+  }));
+  if(best) return best.id;
+  return c.seasons[0]?.episodes?.[0]?.id || null;
+}
 function setProgress(contentId, episodeId, position, duration){
   STATE.watchProgress[progKey(contentId, episodeId)] = { position, duration, updatedAt: Date.now() };
   saveState();
@@ -835,7 +850,7 @@ function renderHome(){
         <div class="hero-meta"><span>${hero.year}</span><span class="dot"></span><span>${hero.genres.join(' · ')}</span><span class="dot"></span><span>${fmtDur(hero.duration)}</span><span class="dot"></span><span>★ ${hero.rating}</span></div>
         <p class="hero-synopsis">${hero.synopsis}</p>
         <div class="hero-actions">
-          <button class="btn btn-primary" data-play="${hero.id}">▶ Reproducir</button>
+          <button class="btn btn-primary" data-play="${hero.id}" data-episode="${resumeEpisodeId(hero)||''}">▶ Reproducir</button>
           <button class="btn btn-ghost" data-detail="${hero.id}">+ Mi Lista</button>
         </div>
       </div>
@@ -1019,7 +1034,7 @@ function renderDetailPanel(c){
       <h2 class="detail-title">${c.title}</h2>
       <div class="detail-meta"><span>${c.year}</span><span class="dot"></span><span>${c.genres.join(' · ')}</span><span class="dot"></span><span>★ ${c.rating}</span>${!isSeries?`<span class="dot"></span><span>${fmtDur(c.duration)}</span>`:''}<span class="dot"></span><span class="badge">${c.quality}</span></div>
       <div class="detail-actions">
-        <button class="btn btn-primary" data-play="${c.id}">▶ Reproducir</button>
+        <button class="btn btn-primary" data-play="${c.id}" data-episode="${resumeEpisodeId(c)||''}">▶ Reproducir</button>
         <button class="btn btn-ghost" data-listtoggle="${c.id}">${inList?'✓ En mi lista':'+ Mi lista'}</button>
         <button class="btn btn-ghost" data-favtoggle="${c.id}">${isFav?'❤️ Favorito':'🤍 Favorito'}</button>
       </div>
@@ -1054,7 +1069,7 @@ function renderEpisodeList(c, s){
 }
 function bindDetailHandlers(c){
   const panel = document.getElementById('detail-panel');
-  panel.querySelectorAll('[data-play]').forEach(b=> b.addEventListener('click', ()=> playContent(c.id)));
+  panel.querySelectorAll('[data-play]').forEach(b=> b.addEventListener('click', ()=> playContent(c.id, resumeEpisodeId(c) || undefined)));
   panel.querySelectorAll('[data-favtoggle]').forEach(b=> b.addEventListener('click', ()=>{ toggleFav(c.id); openDetail(c.id); }));
   panel.querySelectorAll('[data-listtoggle]').forEach(b=> b.addEventListener('click', ()=>{ toggleList(c.id); openDetail(c.id); }));
   panel.querySelectorAll('[data-season]').forEach(b=> b.addEventListener('click', ()=>{ currentSeasonIdx = +b.dataset.season; openDetail(c.id); }));
@@ -1444,7 +1459,7 @@ function renderAdminStats(){
    ================================================================ */
 function bindDynamicHandlers(){
   document.querySelectorAll('[data-detail]').forEach(el=> el.addEventListener('click', ()=> openDetail(el.dataset.detail)));
-  document.querySelectorAll('[data-play]').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); playContent(el.dataset.play); }));
+  document.querySelectorAll('[data-play]').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); playContent(el.dataset.play, el.dataset.episode || undefined); }));
   document.querySelectorAll('[data-favtoggle]').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); toggleFav(el.dataset.favtoggle); route(location._route); }));
   document.querySelectorAll('[data-continue]').forEach(el=> el.addEventListener('click', ()=> playContent(el.dataset.continue, el.dataset.ep||null)));
   document.querySelectorAll('[data-nav]').forEach(el=> el.addEventListener('click', ()=> route(el.dataset.nav)));
